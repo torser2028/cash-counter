@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es-CO">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#123e6b">
+<title>Contador de efectivo COP</title>
+<meta name="description" content="Cuenta billetes y monedas colombianas y obtén el total al instante.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Contador COP">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#fff; --ink:#14202e; --muted:#5d6b7b; --line:#e3e8ee;
+    --brand:#123e6b; --brand-2:#1d5a97; --accent:#f2b705;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0e141b; --card:#16202b; --ink:#e8eef5; --muted:#93a3b5; --line:#243243; --brand:#0f3459; --brand-2:#2a6db0; }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+  .wrap{max-width:560px;margin:0 auto;padding:0 max(12px, env(safe-area-inset-right)) calc(96px + env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left))}
+
+  /* Total siempre visible */
+  .total-bar{position:sticky;top:0;z-index:10;background:var(--brand);color:#fff;
+    margin:0 -12px;padding:calc(14px + env(safe-area-inset-top)) 18px 12px;box-shadow:0 4px 16px rgba(0,0,0,.18)}
+  .total-label{font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.8;font-weight:600}
+  .total-amount{font-size:34px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums;margin-top:2px;word-break:break-all}
+  .total-split{display:flex;gap:16px;font-size:13px;margin-top:4px;opacity:.92;font-variant-numeric:tabular-nums;flex-wrap:wrap}
+  .total-split b{font-weight:700}
+
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 4px 8px;font-weight:700;display:flex;justify-content:space-between}
+  h2 span{font-variant-numeric:tabular-nums;text-transform:none;letter-spacing:0;color:var(--ink)}
+  .list{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .row{display:grid;grid-template-columns:1fr 112px 1fr;align-items:center;gap:10px;padding:10px 12px;border-top:1px solid var(--line)}
+  .row:first-child{border-top:0}
+  .den{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .chip{width:30px;height:18px;border-radius:4px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+  .coin{width:22px;height:22px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 2px rgba(0,0,0,.12)}
+  .qty{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg)}
+  .qty button{all:unset;width:32px;height:40px;display:grid;place-items:center;font-size:20px;font-weight:600;color:var(--brand-2);cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent}
+  .qty button:active{background:var(--line)}
+  .qty input{width:100%;min-width:0;border:0;background:transparent;color:var(--ink);text-align:center;font:600 17px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;height:40px;font-variant-numeric:tabular-nums;outline:none}
+  .qty:focus-within{border-color:var(--brand-2);box-shadow:0 0 0 3px rgba(29,90,151,.2)}
+  .sub{text-align:right;font-weight:600;font-variant-numeric:tabular-nums;font-size:15px;white-space:nowrap}
+  .sub.zero{color:var(--muted);font-weight:500}
+
+  .actions{display:flex;gap:10px;margin-top:22px}
+  .btn{flex:1;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:13px;font:600 15px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;cursor:pointer}
+  .btn.primary{background:var(--brand-2);border-color:var(--brand-2);color:#fff}
+  .note{font-size:12px;color:var(--muted);text-align:center;margin-top:16px;line-height:1.5}
+
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:20;padding:20px}
+  .modal.open{display:flex}
+  .modal-box{background:var(--card);border-radius:16px;padding:20px;max-width:340px;width:100%}
+  .modal-box p{margin:0 0 16px;font-weight:600}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+
+  @media (max-width:380px){
+    .row{grid-template-columns:1fr 100px 1fr;gap:6px;padding:9px 10px}
+    .den{font-size:15px;gap:7px}
+    .sub{font-size:14px}
+    .total-amount{font-size:30px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="total-bar" aria-live="polite">
+    <div class="total-label">Total contado</div>
+    <div class="total-amount" id="total">$ 0</div>
+    <div class="total-split">
+      <span>Billetes: <b id="tBills">$ 0</b></span>
+      <span>Monedas: <b id="tCoins">$ 0</b></span>
+    </div>
+  </header>
+
+  <h2>Billetes <span id="nBills">0 unid.</span></h2>
+  <div class="list" id="bills"></div>
+
+  <h2>Monedas <span id="nCoins">0 unid.</span></h2>
+  <div class="list" id="coins"></div>
+
+  <div class="actions">
+    <button class="btn" id="clear">Limpiar</button>
+    <button class="btn primary" id="copy">Copiar resumen</button>
+  </div>
+  <p class="note">Denominaciones vigentes del Banco de la República de Colombia.<br>El conteo se guarda en este dispositivo.</p>
+</div>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <p>¿Borrar todo el conteo?</p>
+    <div class="actions" style="margin:0">
+      <button class="btn" id="cancel">Cancelar</button>
+      <button class="btn primary" id="confirm">Borrar</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const BILLS = [
+  {v:100000, c:'#3f8f5a'},
+  {v:50000,  c:'#8e3b8f'},
+  {v:20000,  c:'#e07b2a'},
+  {v:10000,  c:'#c8425a'},
+  {v:5000,   c:'#8a6a3b'},
+  {v:2000,   c:'#2a9fb0'},
+];
+const COINS = [
+  {v:1000, c:'radial-gradient(circle,#d9b54a 55%,#b8bcc2 56%)'},
+  {v:500,  c:'radial-gradient(circle,#b8bcc2 55%,#d9b54a 56%)'},
+  {v:200,  c:'#c9ccd1'},
+  {v:100,  c:'#d9b54a'},
+  {v:50,   c:'#c9ccd1'},
+];
+const KEY = 'contador-cop-v1';
+const fmt = n => '$ ' + n.toLocaleString('es-CO');
+let counts = {};
+try { counts = JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e) { counts = {}; }
+
+function rowHTML(d, type){
+  const mark = type === 'bill'
+    ? `<span class="chip" style="background:${d.c}"></span>`
+    : `<span class="coin" style="background:${d.c}"></span>`;
+  return `<div class="row" data-v="${d.v}">
+    <div class="den">${mark}${fmt(d.v)}</div>
+    <div class="qty">
+      <button type="button" data-step="-1" aria-label="Restar uno">−</button>
+      <input type="text" inputmode="numeric" pattern="[0-9]*" placeholder="0" aria-label="Cantidad de ${fmt(d.v)}" value="${counts[d.v] || ''}">
+      <button type="button" data-step="1" aria-label="Sumar uno">+</button>
+    </div>
+    <div class="sub zero">$ 0</div>
+  </div>`;
+}
+document.getElementById('bills').innerHTML = BILLS.map(d => rowHTML(d,'bill')).join('');
+document.getElementById('coins').innerHTML = COINS.map(d => rowHTML(d,'coin')).join('');
+
+function recalc(){
+  let bills = 0, coins = 0, nB = 0, nC = 0;
+  document.querySelectorAll('.row').forEach(r => {
+    const v = +r.dataset.v;
+    const q = parseInt(r.querySelector('input').value, 10) || 0;
+    counts[v] = q;
+    const s = v * q;
+    const sub = r.querySelector('.sub');
+    sub.textContent = fmt(s);
+    sub.classList.toggle('zero', s === 0);
+    if (BILLS.some(b => b.v === v)) { bills += s; nB += q; } else { coins += s; nC += q; }
+  });
+  document.getElementById('total').textContent = fmt(bills + coins);
+  document.getElementById('tBills').textContent = fmt(bills);
+  document.getElementById('tCoins').textContent = fmt(coins);
+  document.getElementById('nBills').textContent = nB.toLocaleString('es-CO') + ' unid.';
+  document.getElementById('nCoins').textContent = nC.toLocaleString('es-CO') + ' unid.';
+  try { localStorage.setItem(KEY, JSON.stringify(counts)); } catch(e) {}
+  return {bills, coins};
+}
+
+document.addEventListener('input', e => {
+  if (e.target.matches('.qty input')) {
+    const clean = e.target.value.replace(/\D/g,'').replace(/^0+(?=\d)/,'').slice(0,6);
+    if (clean !== e.target.value) e.target.value = clean;
+    recalc();
+  }
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-step]');
+  if (!b) return;
+  const input = b.parentElement.querySelector('input');
+  const n = Math.max(0, (parseInt(input.value,10) || 0) + (+b.dataset.step));
+  input.value = n || '';
+  recalc();
+});
+document.addEventListener('focusin', e => { if (e.target.matches('.qty input')) e.target.select(); });
+
+// Enter salta al siguiente campo
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.matches('.qty input')) {
+    const all = [...document.querySelectorAll('.qty input')];
+    const next = all[all.indexOf(e.target) + 1];
+    next ? next.focus() : e.target.blur();
+    e.preventDefault();
+  }
+});
+
+const modal = document.getElementById('modal');
+document.getElementById('clear').onclick = () => modal.classList.add('open');
+document.getElementById('cancel').onclick = () => modal.classList.remove('open');
+document.getElementById('confirm').onclick = () => {
+  document.querySelectorAll('.qty input').forEach(i => i.value = '');
+  recalc(); modal.classList.remove('open'); toast('Conteo borrado');
+};
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove('show'), 1800);
+}
+document.getElementById('copy').onclick = async () => {
+  const {bills, coins} = recalc();
+  const lines = ['Conteo de efectivo'];
+  [...BILLS, ...COINS].forEach(d => { if (counts[d.v]) lines.push(`${fmt(d.v)} x ${counts[d.v]} = ${fmt(d.v*counts[d.v])}`); });
+  lines.push('', `Billetes: ${fmt(bills)}`, `Monedas: ${fmt(coins)}`, `TOTAL: ${fmt(bills+coins)}`);
+  try { await navigator.clipboard.writeText(lines.join('\n')); toast('Resumen copiado'); }
+  catch(e) { toast('No se pudo copiar'); }
+};
+
+recalc();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

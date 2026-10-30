@@ -1,0 +1,19 @@
+{
+  "name": "Contador de efectivo COP",
+  "short_name": "Contador COP",
+  "description": "Cuenta billetes y monedas colombianas y obtén el total al instante.",
+  "lang": "es-CO",
+  "start_url": "./",
+  "scope": "./",
+  "id": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f6f9",
+  "theme_color": "#123e6b",
+  "categories": ["finance", "utilities", "business"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
